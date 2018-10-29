@@ -18,18 +18,19 @@ class Window(QWidget):
         self.width = 900
         self.height = 300
         self.speed = 0
+        self.labelSpeed = QLabel("Speed: " + str(self.speed))
         self.row = (
             (1,2,80,1),
             (2,200,20,0),
-            (2,200,20,0),
-            (2,200,20,0),
-            (2,200,20,0),
-            (2,200,20,0),
-            (2,200,20,0),
-            (2,200,20,0),
-            (2,200,20,0),
-            (2,200,20,0),
-            (2,200,20,0),
+            (3,200,20,0),
+            (4,200,20,0),
+            (5,200,20,0),
+            (6,200,20,0),
+            (7,200,20,0),
+            (8,200,20,0),
+            (9,200,20,0),
+            (10,200,20,0),
+            (11,200,20,0),
         )
         self.typeRow = ("Работает", "Выполнено")
         self.workType = ("Start", "Finish")
@@ -48,8 +49,8 @@ class Window(QWidget):
         btnSet.clicked.connect(self.btnSetClicked)
 
         self.createTable()
-
-        self.layout.addWidget(QLabel("Speed: " + str(self.speed)), 1, 0)
+        
+        self.layout.addWidget(self.labelSpeed, 1, 0)
         self.layout.addWidget(btnUp, 1, 1)
         self.layout.addWidget(btnDown, 1,2)
         self.layout.addWidget(btnSet, 1, 4) 
@@ -103,11 +104,11 @@ class Window(QWidget):
 
     def btnUpClicked(self):
         self.speed += 10
-        print(self.speed)
+        self.labelSpeed.setText("Speed: " + str(self.speed))
 
     def btnDownClicked(self):
         self.speed -= 10
-        print(self.speed)
+        self.labelSpeed.setText("Speed: " + str(self.speed))
     
     def btnSetClicked(self):
         print("set")
