@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-import sys
+import sys, random
 from collections import defaultdict
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtGui import *
@@ -15,24 +15,18 @@ class Window(QWidget):
         self.title = 'OS'
         self.left = 0
         self.top = 0
+        self.index = 0
         self.width = 900
         self.height = 300
-        self.speed = 0
-        self.labelSpeed = QLabel("Speed: " + str(self.speed))
-        self.row = (
-            (1,2,80,1),
-            (2,200,20,0),
-            (3,200,20,0),
-            (4,200,20,0),
-            (5,200,20,0),
-            (6,200,20,0),
-            (7,200,20,0),
-            (8,200,20,0),
-            (9,200,20,0),
-            (10,200,20,0),
-            (11,200,20,0),
-        )
-        self.typeRow = ("Работает", "Выполнено")
+        self.speed = 100
+        self.maxSpeed = 1000
+        self.memory = 4000
+        self.labelSpeed = QLabel()
+        self.editSpeed(self.speed)
+        self.labelMemory = QLabel()
+        self.sti = QStandardItemModel()
+        self.row = []
+        self.typeRow = ("Ждет","Работает", "Выполнено")
         self.workType = ("Start", "Finish")
         self.initUI()
         
@@ -48,6 +42,10 @@ class Window(QWidget):
         btnSet = QPushButton(self.workType[0], self)
         btnSet.clicked.connect(self.btnSetClicked)
 
+
+        btnNew = QPushButton("New", self) 
+        btnNew.clicked.connect(self.btnNewClicked)
+
         self.createTable()
         
         self.layout.addWidget(self.labelSpeed, 1, 0)
@@ -56,9 +54,10 @@ class Window(QWidget):
         self.layout.addWidget(btnSet, 1, 4) 
         self.layout.addWidget(QLabel(), 1, 0) 
         self.layout.addWidget(QLabel("CPU0: The task is't"),2, 0) 
+        self.layout.addWidget(btnNew, 2, 1) 
         self.layout.addWidget(QLabel("History:"), 3, 0) 
-        self.layout.addWidget(self.tableWidget, 4, 0, -1, -1) 
-
+        self.layout.addWidget(self.labelMemory, 4, 0) 
+        self.layout.addWidget(self.tableWidget, 5, 0, -1, -1) 
         self.show()
     
     def setTableWidth(self):
@@ -79,20 +78,20 @@ class Window(QWidget):
         self.tableWidget = QTableView()
         self.tableWidget.verticalHeader().hide()
         
-        sti = QStandardItemModel()
-        sti.setColumnCount(4)
-        sti.setHorizontalHeaderLabels(["ID", "Память", "Прогресс", "Состояние"])
-        self.tableWidget.setModel(sti)
-
-        index = 0
-        for idRow, speed, progressBar, typeRow in self.row:
-            sti.appendRow([QStandardItem("") for i in range(4)])
-            self.tableWidget.setIndexWidget(sti.index(index, 0), QLabel(str(idRow)))
-            self.tableWidget.setIndexWidget(sti.index(index, 1), QLabel(str(speed)))
-            self.tableWidget.setIndexWidget(sti.index(index, 2), self.createProgressBar(progressBar))
-            self.tableWidget.setIndexWidget(sti.index(index, 3), QLabel(self.typeRow[typeRow]))
-            index += 1 
-
+        
+        self.sti.setColumnCount(4)
+        self.sti.setHorizontalHeaderLabels(["ID", "Память", "Прогресс", "Состояние"])
+        self.tableWidget.setModel(self.sti)
+        tmpCount = 1
+        for i in range(4):
+            allCount = random.randint(1,1000)
+            doneCount = random.randint(1, allCount)
+            res = (100 * doneCount) / allCount
+            self.row.append((i + 1,random.randint(1,100),res,0,tmpCount,random.randint(1,tmpCount)))
+        
+        
+        for idRow, memory, progressBar, typeRow, countProgress, countDone in self.row:
+            self.addRow(memory,progressBar, typeRow)
         header = self.tableWidget.horizontalHeader()       
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
@@ -100,20 +99,39 @@ class Window(QWidget):
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.tableWidget.setFixedHeight(300)
 
-        self.tableWidget.doubleClicked.connect(self.on_click)
-
     def btnUpClicked(self):
         self.speed += 10
-        self.labelSpeed.setText("Speed: " + str(self.speed))
+        if (self.speed > self.maxSpeed):
+            self.speed = self.maxSpeed
+        self.editSpeed(self.speed)
 
     def btnDownClicked(self):
         self.speed -= 10
-        self.labelSpeed.setText("Speed: " + str(self.speed))
+        if (self.speed < 0):
+            self.speed = 0
+        self.editSpeed(self.speed)
     
     def btnSetClicked(self):
         print("set")
     
-    @pyqtSlot()
-    def on_click(self):
-        sys.exit()
+    def btnNewClicked(self):
+        self.row.append((self.index,0,0,0,0,0))
+        self.addRow(0, 0, 0)
+        print("new")
+
+    def addRow(self, memory, progress, typeRow):
+        self.sti.appendRow([QStandardItem("") for i in range(4)])
+        self.memory = self.memory - memory
+        self.editMemory(self.memory)
+        self.tableWidget.setIndexWidget(self.sti.index(self.index, 0), QLabel(str(self.index)))
+        self.tableWidget.setIndexWidget(self.sti.index(self.index, 1), QLabel(str(memory)+"Мб"))
+        self.tableWidget.setIndexWidget(self.sti.index(self.index, 2), self.createProgressBar(progress))
+        self.tableWidget.setIndexWidget(self.sti.index(self.index, 3), QLabel(self.typeRow[typeRow]))
+        self.index = self.index + 1
+
+    def editSpeed(self, speed):
+        self.labelSpeed.setText("Speed: " + str(self.speed) + " %")
+
+    def editMemory(self, memory):
+        self.labelMemory.setText("Память: " + str(memory) + " свободно из 4000")
         
