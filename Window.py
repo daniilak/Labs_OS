@@ -2,68 +2,97 @@
 # -*- coding: utf-8 -*-
 import sys, random
 from collections import defaultdict
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from Task import Task
+from CPU import CPU
+CPU
 Task
-TACT = 1 * 1000 * 0.1
+TACT = 1 * 1000 # * 0.1
 
 class Window(QWidget):
 
+    maxCPU = 3
+    stop = 0
+    _update_secs = 30
+    _next_id_task = 1
+    speed = 100
+    maxSpeed = 1000
+    memory_all = 10000
+    workType = ("Start", "Finish")
+    tasks = []
+    CPUs = []
+
     def __init__(self):
         super().__init__()
-        self._update_secs = 30
-        self.title = 'OS'
-        self.stop = 0
-        self.stopB = 1
-        self._next_id_task = 0
-        self.speed = 100
-        self.maxSpeed = 1000
-        self.memory_all = 10000
         self.labelSpeed = QLabel()
-        self.editSpeed(self.speed)
+        self.editSpeed()
         self.labelMemory = QLabel()
+        self.labelDescCPU = QLabel()
         self.sti = QStandardItemModel()
-        self.workType = ("Start", "Finish")
-        self.tasks = []
+        self.play = QtGui.QIcon()
+        self.pause = QtGui.QIcon()
         self.initUI()
         
     def initUI(self):
-        self.setWindowTitle(self.title)
+        self.setWindowTitle('OS')
         self.setGeometry(0, 0, 900, 300)
-        self.layout = QGridLayout()
-        self.setLayout(self.layout) 
-        btnUp = QPushButton("+", self) 
+        layout = QGridLayout()
+        layout.setColumnStretch(1, 4)
+        layout.setColumnStretch(2, 4)
+        self.setLayout(layout)
+        
+        plus = QtGui.QIcon()
+        plus.addPixmap(QtGui.QPixmap("icons/plus.png"))
+        minus = QtGui.QIcon()
+        minus.addPixmap(QtGui.QPixmap("icons/minus.png"))
+        
+        self.play.addPixmap(QtGui.QPixmap("icons/play.png"))
+        self.pause.addPixmap(QtGui.QPixmap("icons/pause.png"))
+        
+        btnUp = QPushButton(self) 
+        btnUp.setFixedSize(30, 30)
+        btnUp.setIcon(plus)
         btnUp.clicked.connect(self.btnUpClicked)
-        btnDown = QPushButton("-", self)
+
+        btnDown = QPushButton(self)
+        btnDown.setFixedSize(30, 30)
+        btnDown.setIcon(minus)
         btnDown.clicked.connect(self.btnDownClicked)
-        self.btnSet = QPushButton(self.workType[0], self)
+
+        self.btnSet = QPushButton()
+        self.btnSet.setIcon(self.pause)
         self.btnSet.clicked.connect(self.btnSetClicked)
         btnNew = QPushButton("New", self) 
         btnNew.clicked.connect(self.btnNewClicked)
         self.createTable()
-        self.layout.addWidget(self.labelSpeed, 1, 0)
-        self.layout.addWidget(btnUp, 1, 1)
-        self.layout.addWidget(btnDown, 1,2)
-        self.layout.addWidget(self.btnSet, 1, 4) 
-        self.layout.addWidget(QLabel(), 1, 0) 
-        self.layout.addWidget(QLabel("CPU0: The task is't"),2, 0) 
-        self.layout.addWidget(btnNew, 2, 1) 
-        self.layout.addWidget(QLabel("History:"), 3, 0) 
-        self.layout.addWidget(self.labelMemory, 4, 0) 
-        self.layout.addWidget(self.tableWidget, 5, 0, -1, -1) 
+        layout.addWidget(self.labelSpeed, 1, 0)
+        layout.addWidget(btnUp, 1, 1)
+        layout.addWidget(btnDown, 1,2)
+        layout.addWidget(btnNew, 1,3)
+        layout.addWidget(self.btnSet, 1, 4) 
+        layout.addWidget(self.labelDescCPU,2, 3) 
+        layout.addWidget(self.labelMemory, 2, 4) 
+        layout.addWidget(self.table, 3, 0, -1, -1)
         self.timer = QBasicTimer()
+        for i in range(self.maxCPU):
+            cpu = CPU(
+                id=i,
+                speed=self.speed
+            )
+            self.CPUs.append(cpu)
         self.timer.start(TACT * self.speed / 100, self)
+        self.editMemory(0)
         self.show()
     
     def setTableWidth(self):
-        height = self.tableWidget.verticalHeader().height()
-        height += self.tableWidget.horizontalHeader().length()
-        if self.tableWidget.verticalScrollBar().isVisible():
-            height += self.tableWidget.verticalScrollBar().height()
-        height += self.tableWidget.frameWidth() * 2
+        height = self.table.verticalHeader().height()
+        height += self.table.horizontalHeader().length()
+        if self.table.verticalScrollBar().isVisible():
+            height += self.table.verticalScrollBar().height()
+        height += self.table.frameWidth() * 2
 
     def createProgressBar(self, count):
         progressBar = QProgressBar()
@@ -73,91 +102,146 @@ class Window(QWidget):
         return progressBar
 
     def createTable(self):
-        self.tableWidget = QTableView()
-        self.tableWidget.verticalHeader().hide() 
-        self.tableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table = QTableView()
+        self.table.verticalHeader().hide() 
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.sti.setColumnCount(5)
-        self.sti.setHorizontalHeaderLabels(["ID", "Память", "Прогресс", "Состояние", "кол-во"])
-        self.tableWidget.setModel(self.sti)
-        self.addRow()
-        header = self.tableWidget.horizontalHeader()       
+        self.sti.setHorizontalHeaderLabels(["ID", "Память", "Прогресс", "Состояние", "Кол-во"])
+        self.table.setModel(self.sti)
+        header = self.table.horizontalHeader()       
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        self.tableWidget.setFixedHeight(300)
-
-        self.tableWidget.resizeColumnsToContents()
-        self.tableWidget.setSelectionBehavior(QTableView.SelectRows)
+        self.table.setFixedHeight(300)
+        self.table.resizeColumnsToContents()
+        self.table.setSelectionBehavior(QTableView.SelectRows)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self.context)
 
     def btnUpClicked(self):
-        self.speed += 10
+        self.speed += 50
         if self.speed > self.maxSpeed:
             self.speed = self.maxSpeed
-        self.editSpeed(self.speed)
+        for CPU in self.CPUs:
+            CPU.setSpeed(self.speed)
+        self.timer.start(TACT / self.speed * 100, self)
+        self.editSpeed()
 
     def btnDownClicked(self):
-        self.speed -= 10
+        self.speed -= 50
         if self.speed < 0:
             self.speed = 0
-        self.editSpeed(self.speed)
+        for CPU in self.CPUs:
+            CPU.setSpeed(self.speed)
+        self.timer.start(TACT / self.speed * 100, self)
+        self.editSpeed()
     
     def btnSetClicked(self):
-        self.stop, self.stopB = self.stopB, self.stop
+        self.btnSet.setIcon(QIcon())
         if self.stop == 1:
-            self.btnSet.setText('Start')
+            self.stop = 0
+            self.btnSet.setIcon(self.pause)
         else:
-            self.btnSet.setText('Stop')
-        
+            self.stop = 1
+            self.btnSet.setIcon(self.play)
     
     def btnNewClicked(self):
-        self.addRow()
+        self.addTask()
 
-    def addRow(self):
+    def addTask(self):
         if self.memory_all < 1:
             return
         memory_size = random.randint(1, self.memory_all)
-        priority = random.randint(0, 2)
         self.editMemory(memory_size)
         task = Task(
             id=self._next_id_task,
-            priority=priority,
             memory_size=memory_size,
-            count_tact=random.randint(1, self.memory_all)
+            count_tact=random.randint(1, 50) #self.memory_all)
         )
+        print("task.id:" +str(task.id))
         
         self.sti.appendRow([QStandardItem("") for i in range(4)])
-        self.tableWidget.setIndexWidget(
-            self.sti.index(self._next_id_task, 0), QLabel(str(task.id)))
-        self.tableWidget.setIndexWidget(
-            self.sti.index(self._next_id_task, 1), QLabel('{}Мб'.format(task.memory_size)))
-        self.tableWidget.setIndexWidget(
-            self.sti.index(self._next_id_task, 2), self.createProgressBar(task.getProgress()))
-        self.tableWidget.setIndexWidget(
-            self.sti.index(self._next_id_task, 3), QLabel(task.getTypeTask()))
-        self.tableWidget.setIndexWidget(
-            self.sti.index(self._next_id_task, 4), QLabel(str(task.count_task)))
+        index = self._next_id_task - 1 
+        self.table.setIndexWidget(
+            self.sti.index(index, 0), QLabel(str(task.id)))
+        self.table.setIndexWidget(
+            self.sti.index(index, 1), QLabel('{}Мб'.format(task.memory_size)))
+        self.table.setIndexWidget(
+            self.sti.index(index, 2), self.createProgressBar(task.getProgress()))
+        self.table.setIndexWidget(
+            self.sti.index(index, 3), QLabel(task.getTypeTask()))
+        self.table.setIndexWidget(
+            self.sti.index(index, 4), QLabel('0/{}'.format(task.count_tact)))
         self._next_id_task += 1
         self.tasks.append(task)
 
         
-    def editSpeed(self, speed):
+    def editSpeed(self):
         self.labelSpeed.setText('Speed {}%'.format(self.speed))
 
-    def editMemory(self, memory_size):
-        self.memory_all = self.memory_all - memory_size
-        self.labelMemory.setText('Память: {} свободно из 10 000'.format(self.memory_all))
+    def editMemory(self, memory_size, typeEdit = 'erase'):
+        if typeEdit == 'erase':
+            self.memory_all = self.memory_all - memory_size
+        if typeEdit == 'add':
+            self.memory_all = self.memory_all + memory_size
+        self.labelMemory.setText('Память:\nСвободно: {}\nВсего: 10 000\n'.format(self.memory_all))
     
+    def context(self, point, *args, **kwargs):
+        menu = QMenu()
+        edit_row = self.table.selectionModel().selectedRows()
+        if edit_row:
+            edit_row = edit_row[0].row()
+            edit_question = QAction('Редактировать задачу', menu)
+            edit_question.triggered.connect(self.contextEvent)
+            menu.addAction(edit_question)
+            menu.exec(self.table.mapToGlobal(point))
+
+    def contextEvent(self, *args, **kwargs):
+        selected_rows = self.table.selectionModel().selectedRows()
+        print(selected_rows)
+        selected_row = selected_rows[0] if selected_rows else None
+        if selected_row:
+            index = selected_row.row()
+            edit_task = self.tasks[index]
+            print(index)
+
     def renderTasks(self):
-        if self.stop == 1:
-            i = 0
-            for task in self.tasks:
-                self.tableWidget.setIndexWidget(self.sti.index(i, 4), QLabel(str(task.counter())))
-                self.tableWidget.setIndexWidget(self.sti.index(i, 2), self.createProgressBar(task.getProgress()))
-                self.tableWidget.setIndexWidget(self.sti.index(i, 3), QLabel(task.getTypeTask()))
-                i += 1
+        allCPU = ''
+        if self.stop == 0:
+            index = 0
+            for cp in self.CPUs:
+                allCPU = "CPU" + str(index) + ": stopped\n" + str(allCPU)
+                index += 1
+            self.labelDescCPU.setText(allCPU)
+            return
+        index = 0
+        for cp in self.CPUs:
+            allCPU = "CPU" + str(index) + ": " + str(cp.getCurrentTask()) + '\n' + str(allCPU)  
+            index += 1
+            if cp.getCurrentTask() == 0:
+                minIdTask = 0
+                for task in self.tasks:
+                    if task.getIdTypeTask() == 0:
+                        minIdTask = task.id
+                        task.updateTypeTask(1)
+                        break
+                cp.setCurrentTask(minIdTask)
+            if cp.getCurrentTask() == 0:
+                self.addTask()
+                continue
+            id = cp.getCurrentTask() - 1
+            self.table.setIndexWidget(self.sti.index(id, 4), QLabel(str(self.tasks[id].counter())))
+            if self.tasks[id].doneTacts == self.tasks[id]._max_tacts_doing:
+                if self.tasks[id].idTypeTask == 2:
+                    self.tasks[id].updateTypeTask(3)
+                    self.tasks[id].idTypeTask = 3
+                    cp.setCurrentTask(0)
+                    self.editMemory(self.tasks[id].memory_size, 'add')
+            self.table.setIndexWidget(self.sti.index(id, 2), self.createProgressBar(self.tasks[id].getProgress()))
+            self.table.setIndexWidget(self.sti.index(id, 3), QLabel(self.tasks[id].getTypeTask()))
+        self.labelDescCPU.setText(allCPU)
     
     def timerEvent(self, *args, **kwargs):
         self.renderTasks()
-        
